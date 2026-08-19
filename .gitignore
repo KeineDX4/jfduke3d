@@ -27,3 +27,7 @@
 /build
 /duke3d
 /grpfiles.cache
+
+# Symbian Belle build (the CI workflow collects the toolchain log into the workspace)
+/qmake-sbs.log
+

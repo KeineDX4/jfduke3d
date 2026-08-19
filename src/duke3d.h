@@ -75,7 +75,12 @@ enum {
 
 #define FOURSLEIGHT (1<<8)
 
-#include "types.h"
+// The Symbian sbs build puts the SDK's epoc32/include/stdapis/sys before the
+// project include dirs in SYSTEMINCLUDE, so the bare name "types.h" would
+// resolve to the SDK's sys/types.h (no int32/fixed/boolean typedefs) instead
+// of jfmact/types.h. Reference the real header by relative path to bypass the
+// include search order.
+#include "../jfmact/types.h"
 #include "file_lib.h"
 #include "develop.h"
 #include "gamedefs.h"
