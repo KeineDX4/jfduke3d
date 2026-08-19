@@ -1,0 +1,54 @@
+name: CI Windows
+# No automatic triggers: runs only when started manually (Actions -> Run workflow).
+on:
+  workflow_dispatch:
+
+jobs:
+  # Gate: CI may only be triggered by the repo owner. GitHub Actions has no
+  # built-in per-actor filter on workflow_dispatch, so the build job depends on
+  # this one; a foreign actor fails it and nothing else runs.
+  authorize:
+    name: Authorize
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only KeineDX4 may run CI
+        run: |
+          if [ "${{ github.actor }}" != "KeineDX4" ] && [ "${{ github.triggering_actor }}" != "KeineDX4" ]; then
+            echo "::error::CI is restricted to KeineDX4 (actor=${{ github.actor }}, triggering=${{ github.triggering_actor }})"
+            exit 1
+          fi
+
+  build-windows:
+    name: Windows polymost=${{ matrix.use_polymost }} gl=${{ matrix.use_opengl }}
+    runs-on: windows-latest
+    needs: authorize
+    strategy:
+      fail-fast: false
+      matrix:
+        use_polymost: [ 0, 1 ]
+        use_opengl: [ 0, 1 ]
+        exclude:
+          - use_polymost: 1
+            use_opengl: 0
+        include:
+          - use_polymost: 1
+            use_opengl: 3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          sdk: 10.0.26100.0
+      - name: Add XAudio2 redistributable
+        run: vcpkg install xaudio2redist:x64-windows
+      - name: Make
+        shell: cmd
+        run: |
+          echo USE_POLYMOST=${{ matrix.use_polymost }} > Makefile.msvcuser
+          echo USE_OPENGL=${{ matrix.use_opengl }} >> Makefile.msvcuser
+          echo VCPKG_ROOT=%VCPKG_INSTALLATION_ROOT% > jfaudiolib/Makefile.msvcuser
+          nmake /f Makefile.msvc all

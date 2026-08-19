@@ -25,6 +25,10 @@ Modifications for JonoF's port by Jonathon Fowler (jf@jonof.id.au)
 */
 //-------------------------------------------------------------------------
 
+#ifdef __SYMBIAN32__
+#include "belle_config.h"   // JFDuke3D-Symbian: BELLE_GAME_DIR (game-data folder on the phone)
+#endif
+
 #include "duke3d.h"
 
 #include "scriplib.h"
@@ -7691,6 +7695,28 @@ int app_main(int argc, char const * const argv[])
     }
 #endif
 
+#ifdef __SYMBIAN32__
+    // Symbian (Nokia E7): the game data lives in BELLE_GAME_DIR (duke3d.pro),
+    // the on-device folder next to duke3d.grp. mkdir() here creates only one
+    // level, so the parent drive root is made first. addsearchpath() lets the
+    // engine find the GRPs, and chdir() makes this directory the process CWD:
+    // duke3d.log, duke3d.cfg and savegames land right next to duke3d.grp -- the
+    // default Symbian process CWD is a private directory the user can't browse.
+    {
+        char belle_dir[BMAX_PATH+1];
+        char *slash;
+        strcpy(belle_dir, BELLE_GAME_DIR);
+        slash = strrchr(belle_dir, '/');
+        if (slash) {
+            *slash = 0;
+            mkdir(belle_dir, S_IRWXU);
+        }
+        mkdir(BELLE_GAME_DIR, S_IRWXU);
+        addsearchpath(BELLE_GAME_DIR);
+        chdir(BELLE_GAME_DIR);
+    }
+#endif
+
     {
         char *supportdir = Bgetsupportdir(TRUE);
         char *appdir = Bgetappdir();
@@ -7959,6 +7985,20 @@ int app_main(int argc, char const * const argv[])
 
    RTS_Init(ud.rtsname);
    if(numlumps) buildprintf("Using .RTS file:%s\n",ud.rtsname);
+
+#ifdef __SYMBIAN32__
+    // E7 (Belle): 8-bit software renderer only (the GPU stays idle until a future
+    // GLES2/Polymost port). 320x200 is the native Duke Nukem 3D resolution --
+    // exactly 4x fewer pixels than 640x480, i.e. roughly 4x faster software
+    // rasterization on the 680 MHz ARM11. Forced here (not via duke3d.cfg, which
+    // may carry a stale 640x480 or a DOS-only ScreenMode) so the effective mode
+    // is deterministic. belle_layer.c's setvideomode accepts 320x200x8 fullscreen.
+    ScreenMode = 1;
+    ScreenDisplay = 0;
+    ScreenWidth = 320;
+    ScreenHeight = 200;
+    ScreenBPP = 8;
+#endif
 
     if( setgamemode(SETGAMEMODE_FULLSCREEN(ScreenDisplay,ScreenMode),ScreenWidth,ScreenHeight,ScreenBPP) < 0 )
     {
